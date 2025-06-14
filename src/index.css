@@ -2,11 +2,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 html {
   box-sizing: border-box;
-  font-size: 62.5%;
 }
 
 *,

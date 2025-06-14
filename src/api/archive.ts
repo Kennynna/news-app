@@ -35,7 +35,7 @@ export async function fetchArchive(
 
 	if (!res.ok) {
 		const err = await res.json()
-		throw new Error(`NYT API error: ${err.fault?.faultstring || res.status}`)
+		throw new Error(`Ошибка при запросе: ${err.fault?.faultstring || res.status}`)
 	}
 
 	const data = (await res.json()) as ArchiveResponse

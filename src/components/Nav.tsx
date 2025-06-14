@@ -2,7 +2,7 @@ import { Sheet, SheetContent, SheetTrigger } from './ui/sheet'
 
 export const NavBar = () => {
 	return (
-		<div className='w-full fixed top-0 z-50 bg-white left-0 p-5 flex items-center justify-center '>
+		<div className='w-full fixed top-0 z-50 bg-white left-0 p-5 flex items-center justify-center card-border'>
 			<Sheet>
 				<SheetTrigger
 					asChild

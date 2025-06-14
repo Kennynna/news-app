@@ -1,3 +1,5 @@
 export { Footer } from './Footer'
 export { NewsList } from './Main'
 export { NavBar } from './Nav'
+export { ArticleCard } from './Aticle-card'
+export * from './ui'
