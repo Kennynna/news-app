@@ -13,7 +13,6 @@ export function NewsList() {
 	)
 	const observerRef = useRef<HTMLDivElement>(null)
 
-	// Загружаем первую страницу при монтировании
 	useEffect(() => {
 		dispatch(fetchNews({ page: 0 }))
 	}, [dispatch])
@@ -25,12 +24,11 @@ export function NewsList() {
 			if (!loading && !loadingMore) {
 				dispatch(fetchNews({ page: 0 }))
 			}
-		}, 30000) // 30 секунд
+		}, 30000) 
 
 		return () => clearInterval(interval)
 	}, [dispatch, loading, loadingMore])
 
-	// Бесконечный скролл через IntersectionObserver
 	const handleObserver = useCallback(
 		(entries: IntersectionObserverEntry[]) => {
 			const [target] = entries
@@ -59,8 +57,8 @@ export function NewsList() {
 		console.log('Setting up observer')
 		const observer = new IntersectionObserver(handleObserver, {
 			root: null,
-			rootMargin: '0px 0px 200px 0px', // старт догрузки за 200px до низа
-			threshold: 0, // любое пересечение
+			rootMargin: '0px 0px 200px 0px', 
+			threshold: 0, 
 		})
 
 		observer.observe(elem)
@@ -77,7 +75,7 @@ export function NewsList() {
 		dispatch(fetchNews({ page: 0 }))
 	}
 
-	// Рендер
+
 	if (error && articles.length === 0) {
 		return <ErrorDisplay error={error} onRetry={handleRetry} />
 	}
@@ -118,7 +116,6 @@ export function NewsList() {
 							</div>
 						))}
 
-						{/* Элемент для наблюдения - делаем его более заметным */}
 						<div
 							ref={observerRef}
 							className='h-20 flex items-center justify-center'
@@ -131,7 +128,6 @@ export function NewsList() {
 							)}
 						</div>
 
-						{/* Показываем ошибку при загрузке дополнительных новостей */}
 						{error && articles.length > 0 && (
 							<div className='text-center py-4'>
 								<div className='bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto'>
@@ -150,7 +146,6 @@ export function NewsList() {
 							</div>
 						)}
 
-						{/* Индикатор загрузки дополнительных новостей */}
 						{loadingMore && <LoadingSpinner />}
 
 						{!hasMore && articles.length > 0 && !error && (

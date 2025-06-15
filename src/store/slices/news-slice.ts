@@ -26,9 +26,9 @@ export function getArchiveYearMonth(): { year: number; month: number } {
 		if (curMonth0 === 0) {
 			return { year: year - 1, month: 12 }
 		}
-		return { year, month: curMonth0 } // исправлено: curMonth0 + 1 для предыдущего месяца
+		return { year, month: curMonth0 } 
 	}
-	// последний день месяца → можно брать текущий
+	// последний день месяца можно брать текущий
 	return { year, month: curMonth0 + 1 }
 }
 
@@ -43,7 +43,6 @@ const initialState: NewsState = {
 	month: new Date().getMonth() + 1,
 }
 
-// Используйте переменную окружения
 const NYT_API_KEY ='aDrloJH7Rkpv8OkmAB0h7TdoFYwB4RSD'
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
