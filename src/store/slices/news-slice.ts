@@ -34,7 +34,7 @@ export const fetchNews = createAsyncThunk(
 	) => {
 		try {
 			const response = await fetch(
-				`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
+				`https://api.nytimes.com/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
 			)
 
 			if (!response.ok) {
@@ -69,7 +69,7 @@ export const loadMoreNews = createAsyncThunk(
 			const nextPage = currentPage + 1
 
 			const response = await fetch(
-				`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
+				`https://api.nytimes.com/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
 			)
 
 			if (!response.ok) {
