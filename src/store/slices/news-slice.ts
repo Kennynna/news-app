@@ -50,7 +50,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function fetchArchive(y: number, m: number) {
 	  await delay(2000)
 	const res = await fetch(
-		`https://api.nytimes.com/svc/archive/v1/${y}/${m}.json?api-key=${NYT_API_KEY}`
+		`/api/svc/archive/v1/${y}/${m}.json?api-key=${NYT_API_KEY}`
 	)
 	if (!res.ok) {
 		const err = await res.json()
