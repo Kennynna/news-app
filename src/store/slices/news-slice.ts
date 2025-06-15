@@ -13,7 +13,7 @@ interface NewsState {
 	month: number
 }
 
-function getArchiveYearMonth(): { year: number; month: number } {
+export function getArchiveYearMonth(): { year: number; month: number } {
 	const today = new Date()
 	const year = today.getFullYear()
 	const curMonth0 = today.getMonth() // 0…11
@@ -21,18 +21,17 @@ function getArchiveYearMonth(): { year: number; month: number } {
 	// последний день текущего месяца:
 	const lastDay = new Date(year, curMonth0 + 1, 0).getDate()
 
+	// Если сегодня не последний день месяца, берем предыдущий месяц так как при отправке текущего вылезает ошибка
 	if (day < lastDay) {
 		if (curMonth0 === 0) {
 			return { year: year - 1, month: 12 }
 		}
-		return { year, month: curMonth0 }
+		return { year, month: curMonth0 } // исправлено: curMonth0 + 1 для предыдущего месяца
 	}
 	// последний день месяца → можно брать текущий
 	return { year, month: curMonth0 + 1 }
 }
 
-// Начальный стейт можно оставить «про запас» как сегодня,
-// он всё равно перезапишется после первого fetchNews.fulfilled
 const initialState: NewsState = {
 	articles: [],
 	loading: false,
@@ -44,10 +43,11 @@ const initialState: NewsState = {
 	month: new Date().getMonth() + 1,
 }
 
-const NYT_API_KEY = 'aDrloJH7Rkpv8OkmAB0h7TdoFYwB4RSD'
-
+// Используйте переменную окружения
+const NYT_API_KEY ='aDrloJH7Rkpv8OkmAB0h7TdoFYwB4RSD'
 
 async function fetchArchive(y: number, m: number) {
+	// Убедимся, что используем HTTPS
 	const res = await fetch(
 		`https://api.nytimes.com/svc/archive/v1/${y}/${m}.json?api-key=${NYT_API_KEY}`
 	)
@@ -58,7 +58,6 @@ async function fetchArchive(y: number, m: number) {
 	return res.json()
 }
 
-// подставляет «архивный» год/месяц
 export const fetchNews = createAsyncThunk<
 	{
 		articles: Article[]
@@ -67,7 +66,6 @@ export const fetchNews = createAsyncThunk<
 		year: number
 		month: number
 	},
-	// теперь принимаем только page (год/месяц вычисляются внутри)
 	{ page?: number },
 	{ rejectValue: string }
 >('news/fetchNews', async ({ page = 0 }, { rejectWithValue }) => {
@@ -92,30 +90,34 @@ export const fetchNews = createAsyncThunk<
 	}
 })
 
-// Загрузка «ещё»
-export const loadMoreNews = createAsyncThunk(
-	'news/loadMoreNews',
-	async (_, { getState, rejectWithValue }) => {
-		try {
-			const state = (getState() as { news: NewsState }).news
-			const nextPage = state.currentPage + 1
-			// берём уже сохранённый ранее год/месяц из стейта
-			const data = await fetchArchive(state.year, state.month)
-			const docs = data.response.docs as Article[]
-			const perPage = 10
-			const start = nextPage * perPage
-			const end = start + perPage
+export const loadMoreNews = createAsyncThunk<
+	{
+		articles: Article[]
+		hasMore: boolean
+		page: number
+	},
+	void,
+	{ rejectValue: string; state: { news: NewsState } }
+>('news/loadMoreNews', async (_, { getState, rejectWithValue }) => {
+	try {
+		const state = getState().news
+		const nextPage = state.currentPage + 1
+		// берём уже сохранённый ранее год/месяц из стейта
+		const data = await fetchArchive(state.year, state.month)
+		const docs = data.response.docs as Article[]
+		const perPage = 10
+		const start = nextPage * perPage
+		const end = start + perPage
 
-			return {
-				articles: docs.slice(start, end),
-				hasMore: end < docs.length,
-				page: nextPage,
-			}
-		} catch (err) {
-			return rejectWithValue(parseAPIError(err))
+		return {
+			articles: docs.slice(start, end),
+			hasMore: end < docs.length,
+			page: nextPage,
 		}
+	} catch (err) {
+		return rejectWithValue(parseAPIError(err))
 	}
-)
+})
 
 const newsSlice = createSlice({
 	name: 'news',
@@ -129,9 +131,9 @@ const newsSlice = createSlice({
 			state.currentPage = 0
 			state.hasMore = true
 			state.error = null
-			// сбросим год/месяц на «сегодняшние», но сразу после первого fetchNews.fulfilled
-			state.year = new Date().getFullYear()
-			state.month = new Date().getMonth() + 1
+			const { year, month } = getArchiveYearMonth()
+			state.year = year
+			state.month = month
 		},
 	},
 	extraReducers: builder => {
@@ -152,7 +154,7 @@ const newsSlice = createSlice({
 			})
 			.addCase(fetchNews.rejected, (state, action) => {
 				state.loading = false
-				state.error = action.payload as string
+				state.error = action.payload || 'Неизвестная ошибка'
 			})
 
 			// Загрузка доп. новостей
@@ -167,7 +169,7 @@ const newsSlice = createSlice({
 			})
 			.addCase(loadMoreNews.rejected, (state, action) => {
 				state.loadingMore = false
-				state.error = action.payload as string
+				state.error = action.payload || 'Неизвестная ошибка'
 			})
 	},
 })

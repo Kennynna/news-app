@@ -1,8 +1,42 @@
+// Типы для различных ошибок
+interface NYTAPIError {
+	fault: {
+		faultstring: string
+		detail: {
+			errorcode: string
+		}
+	}
+}
 
+interface StandardError {
+	message: string
+}
 
-export function parseAPIError(error: any): string {
+// Type guards для проверки типов ошибок
+function isNYTAPIError(error: unknown): error is NYTAPIError {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'fault' in error &&
+		typeof (error as any).fault === 'object' &&
+		'faultstring' in (error as any).fault &&
+		typeof (error as any).fault.faultstring === 'string'
+	)
+}
+
+function isStandardError(error: unknown): error is StandardError {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'message' in error &&
+		typeof (error as any).message === 'string'
+	)
+}
+
+// Основная функция для парсинга ошибок
+export function parseAPIError(error: unknown): string {
 	// Проверяем, является ли это ошибкой NYT API
-	if (error.fault && error.fault.faultstring) {
+	if (isNYTAPIError(error)) {
 		const faultstring = error.fault.faultstring
 		const errorcode = error.fault.detail?.errorcode
 
@@ -24,11 +58,17 @@ export function parseAPIError(error: any): string {
 		return `API_ERROR: ${faultstring}`
 	}
 
-	// Обрабатываем стандартные HTTP ошибки
-	if (error.message) {
+	// Проверяем стандартные ошибки
+	if (isStandardError(error)) {
 		return error.message
 	}
 
+	// Если ошибка - строка
+	if (typeof error === 'string') {
+		return error
+	}
+
+	// Неизвестная ошибка
 	return 'UNKNOWN_ERROR'
 }
 
@@ -40,6 +80,8 @@ export function getErrorMessage(errorCode: string): string {
 			return 'Неверный API ключ. Обратитесь к администратору.'
 		case 'NOT_FOUND':
 			return 'Запрашиваемые данные не найдены.'
+		case 'UNKNOWN_ERROR':
+			return 'Произошла неизвестная ошибка. Попробуйте позже.'
 		default:
 			if (errorCode.startsWith('API_ERROR:')) {
 				return `Ошибка API: ${errorCode.replace('API_ERROR: ', '')}`

@@ -8,16 +8,27 @@ import { useAppDispatch, useAppSelector } from '@/store/hoosk'
 
 export function NewsList() {
 	const dispatch = useAppDispatch()
-	const { articles, loading, loadingMore, error, hasMore, year, month } =
-		useAppSelector(state => state.news)
+	const { articles, loading, loadingMore, error, hasMore } = useAppSelector(
+		state => state.news
+	)
 	const observerRef = useRef<HTMLDivElement>(null)
 
-	// Загружаем новости при монтировании компонента
 	useEffect(() => {
-		dispatch(fetchNews({ year, month }))
-	}, [dispatch, year, month])
+		dispatch(fetchNews({ page: 0 }))
+	}, [dispatch])
 
-	// Intersection Observer для бесконечной прокрутки
+	// Интервал для обновления новостей каждые 30 секунд
+	useEffect(() => {
+		const interval = setInterval(() => {
+			if (!loading && !loadingMore) {
+				dispatch(fetchNews({ page: 0 }))
+			}
+		}, 30000) 
+
+		return () => clearInterval(interval)
+	}, [dispatch, loading, loadingMore])
+
+	// Бесконечный скролл через IntersectionObserver
 	const handleObserver = useCallback(
 		(entries: IntersectionObserverEntry[]) => {
 			const [target] = entries
@@ -29,29 +40,27 @@ export function NewsList() {
 	)
 
 	useEffect(() => {
-		const element = observerRef.current
-		if (!element) return
-
+		const elem = observerRef.current
+		if (!elem) return
 		const observer = new IntersectionObserver(handleObserver, {
 			threshold: 0.1,
 		})
-
-		observer.observe(element)
+		observer.observe(elem)
 		return () => observer.disconnect()
 	}, [handleObserver])
 
+	// Retry — сбрасываем ошибку и перезагружаем
 	const handleRetry = () => {
 		dispatch(clearError())
-		dispatch(fetchNews({ year, month }))
+		dispatch(fetchNews({ page: 0 }))
 	}
 
-	// Показываем ошибку, если она есть и нет загруженных статей
+	// Рендер
 	if (error && articles.length === 0) {
 		return <ErrorDisplay error={error} onRetry={handleRetry} />
 	}
 
 	const groupedArticles = groupArticlesByDate(articles)
-
 	return (
 		<div className=' bg-white w-full mt-[53px] flex-1'>
 			<div className=' p-4 min-w-full'>
@@ -99,7 +108,6 @@ export function NewsList() {
 							</div>
 						)}
 
-						{/* Индикатор загрузки дополнительных новостей */}
 						{loadingMore && <LoadingSpinner />}
 
 						{!hasMore && articles.length > 0 && !error && (
