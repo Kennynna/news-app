@@ -13,6 +13,7 @@ export function NewsList() {
 	)
 	const observerRef = useRef<HTMLDivElement>(null)
 
+	// Загружаем первую страницу при монтировании
 	useEffect(() => {
 		dispatch(fetchNews({ page: 0 }))
 	}, [dispatch])
@@ -20,10 +21,11 @@ export function NewsList() {
 	// Интервал для обновления новостей каждые 30 секунд
 	useEffect(() => {
 		const interval = setInterval(() => {
+			// Обновляем только если нет активной загрузки
 			if (!loading && !loadingMore) {
 				dispatch(fetchNews({ page: 0 }))
 			}
-		}, 30000) 
+		}, 30000) // 30 секунд
 
 		return () => clearInterval(interval)
 	}, [dispatch, loading, loadingMore])
@@ -32,7 +34,15 @@ export function NewsList() {
 	const handleObserver = useCallback(
 		(entries: IntersectionObserverEntry[]) => {
 			const [target] = entries
+			console.log('Observer triggered:', {
+				isIntersecting: target.isIntersecting,
+				hasMore,
+				loadingMore,
+				error,
+			})
+
 			if (target.isIntersecting && hasMore && !loadingMore && !error) {
+				console.log('Loading more news...')
 				dispatch(loadMoreNews())
 			}
 		},
@@ -41,13 +51,25 @@ export function NewsList() {
 
 	useEffect(() => {
 		const elem = observerRef.current
-		if (!elem) return
+		if (!elem) {
+			console.log('Observer element not found')
+			return
+		}
+
+		console.log('Setting up observer')
 		const observer = new IntersectionObserver(handleObserver, {
-			threshold: 0.1,
+			root: null,
+			rootMargin: '0px 0px 200px 0px', // старт догрузки за 200px до низа
+			threshold: 0, // любое пересечение
 		})
+
 		observer.observe(elem)
-		return () => observer.disconnect()
-	}, [handleObserver])
+		return () => {
+			console.log('Cleaning up observer')
+			observer.disconnect()
+		}
+		// пересоздаем, когда появляются статьи или меняется флаг hasMore
+	}, [handleObserver, articles.length, hasMore])
 
 	// Retry — сбрасываем ошибку и перезагружаем
 	const handleRetry = () => {
@@ -61,6 +83,15 @@ export function NewsList() {
 	}
 
 	const groupedArticles = groupArticlesByDate(articles)
+
+	console.log('Render state:', {
+		articlesCount: articles.length,
+		hasMore,
+		loading,
+		loadingMore,
+		error,
+	})
+
 	return (
 		<div className=' bg-white w-full mt-[53px] flex-1'>
 			<div className=' p-4 min-w-full'>
@@ -70,7 +101,7 @@ export function NewsList() {
 					<div className='space-y-6'>
 						{groupedArticles.map(({ date, articles }) => (
 							<div key={date} className='space-y-3'>
-								<h2 className='news-h mb-[10px] text-start'>
+								<h2 className='news-h mb-[10px] text-start mt-4'>
 									{formatDate(date)}
 								</h2>
 								<div className='space-y-3 flex flex-col gap-4'>
@@ -87,7 +118,18 @@ export function NewsList() {
 							</div>
 						))}
 
-						<div ref={observerRef} className='h-4' />
+						{/* Элемент для наблюдения - делаем его более заметным */}
+						<div
+							ref={observerRef}
+							className='h-20 flex items-center justify-center'
+							style={{ minHeight: '20px' }}
+						>
+							{hasMore && !loadingMore && (
+								<div className='text-gray-400 text-sm'>
+									Прокрутите для загрузки еще...
+								</div>
+							)}
+						</div>
 
 						{/* Показываем ошибку при загрузке дополнительных новостей */}
 						{error && articles.length > 0 && (
@@ -108,6 +150,7 @@ export function NewsList() {
 							</div>
 						)}
 
+						{/* Индикатор загрузки дополнительных новостей */}
 						{loadingMore && <LoadingSpinner />}
 
 						{!hasMore && articles.length > 0 && !error && (

@@ -21,7 +21,7 @@ export function ArticleCard({ article, className }: ArticleCardProps) {
 			)}
 			onClick={handleClick}
 		>
-			<CardContent className='p-4 h-full'>
+			<CardContent className=' h-full'>
 				<div className='flex gap-4 items-center h-full'>
 					<div className=''>
 						{imageUrl ? (
@@ -36,7 +36,7 @@ export function ArticleCard({ article, className }: ArticleCardProps) {
 								width={130}
 							/>
 						) : (
-							<div className='w-16 h-16 bg-gray-200 rounded flex items-center justify-center'>
+							<div className='w-[130px] h-[95px] bg-gray-200 rounded flex items-center justify-center'>
 								<span className='text-gray-400 text-xs'>NYT</span>
 							</div>
 						)}
@@ -45,7 +45,7 @@ export function ArticleCard({ article, className }: ArticleCardProps) {
 						<div className='text-title mb-1'>
 							{article.source || 'New York Times'}
 						</div>
-						<h3 className='text-desc line-clamp-5 leading-tight'>
+						<h3 className='text-desc line-clamp-3 leading-tight'>
 							{article.headline?.main || article.abstract}
 						</h3>
 						<div className='text-date'>
