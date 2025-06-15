@@ -13,6 +13,26 @@ interface NewsState {
 	month: number
 }
 
+function getArchiveYearMonth(): { year: number; month: number } {
+	const today = new Date()
+	const year = today.getFullYear()
+	const curMonth0 = today.getMonth() // 0…11
+	const day = today.getDate()
+	// последний день текущего месяца:
+	const lastDay = new Date(year, curMonth0 + 1, 0).getDate()
+
+	if (day < lastDay) {
+		if (curMonth0 === 0) {
+			return { year: year - 1, month: 12 }
+		}
+		return { year, month: curMonth0 }
+	}
+	// последний день месяца → можно брать текущий
+	return { year, month: curMonth0 + 1 }
+}
+
+// Начальный стейт можно оставить «про запас» как сегодня,
+// он всё равно перезапишется после первого fetchNews.fulfilled
 const initialState: NewsState = {
 	articles: [],
 	loading: false,
@@ -24,72 +44,75 @@ const initialState: NewsState = {
 	month: new Date().getMonth() + 1,
 }
 
-// Async thunk для загрузки новостей
-const NYT_API_KEY = 'HDpxjv7texsIckUASLuAcpVUzw1b5QeK'
-export const fetchNews = createAsyncThunk(
-	'news/fetchNews',
-	async (
-		{ year, month, page = 0 }: { year: number; month: number; page?: number },
-		{ rejectWithValue }
-	) => {
-		try {
-			const response = await fetch(
-				`https://api.nytimes.com/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
-			)
+const NYT_API_KEY = 'aDrloJH7Rkpv8OkmAB0h7TdoFYwB4RSD'
 
-			if (!response.ok) {
-				const errorData = await response.json()
-				throw errorData
-			}
 
-			const data = await response.json()
-			const articlesPerPage = 10
-			const startIndex = page * articlesPerPage
-			const endIndex = startIndex + articlesPerPage
-
-			return {
-				articles: data.response.docs.slice(startIndex, endIndex),
-				hasMore: endIndex < data.response.docs.length,
-				page,
-			}
-		} catch (error) {
-			const parsedError = parseAPIError(error)
-			return rejectWithValue(parsedError)
-		}
+async function fetchArchive(y: number, m: number) {
+	const res = await fetch(
+		`https://api.nytimes.com/svc/archive/v1/${y}/${m}.json?api-key=${NYT_API_KEY}`
+	)
+	if (!res.ok) {
+		const err = await res.json()
+		throw err
 	}
-)
+	return res.json()
+}
 
-// Async thunk для загрузки дополнительных новостей
+// подставляет «архивный» год/месяц
+export const fetchNews = createAsyncThunk<
+	{
+		articles: Article[]
+		hasMore: boolean
+		page: number
+		year: number
+		month: number
+	},
+	// теперь принимаем только page (год/месяц вычисляются внутри)
+	{ page?: number },
+	{ rejectValue: string }
+>('news/fetchNews', async ({ page = 0 }, { rejectWithValue }) => {
+	const { year, month } = getArchiveYearMonth()
+	const perPage = 10
+
+	try {
+		const data = await fetchArchive(year, month)
+		const docs = data.response.docs as Article[]
+		const start = page * perPage
+		const end = start + perPage
+
+		return {
+			articles: docs.slice(start, end),
+			hasMore: end < docs.length,
+			page,
+			year,
+			month,
+		}
+	} catch (err) {
+		return rejectWithValue(parseAPIError(err))
+	}
+})
+
+// Загрузка «ещё»
 export const loadMoreNews = createAsyncThunk(
 	'news/loadMoreNews',
 	async (_, { getState, rejectWithValue }) => {
 		try {
-			const state = getState() as { news: NewsState }
-			const { year, month, currentPage } = state.news
-			const nextPage = currentPage + 1
-
-			const response = await fetch(
-				`https://api.nytimes.com/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
-			)
-
-			if (!response.ok) {
-				const errorData = await response.json()
-				throw errorData
-			}
-
-			const data = await response.json()
-			const articlesPerPage = 10
-			const startIndex = nextPage * articlesPerPage
-			const endIndex = startIndex + articlesPerPage
+			const state = (getState() as { news: NewsState }).news
+			const nextPage = state.currentPage + 1
+			// берём уже сохранённый ранее год/месяц из стейта
+			const data = await fetchArchive(state.year, state.month)
+			const docs = data.response.docs as Article[]
+			const perPage = 10
+			const start = nextPage * perPage
+			const end = start + perPage
 
 			return {
-				articles: data.response.docs.slice(startIndex, endIndex),
-				hasMore: endIndex < data.response.docs.length,
+				articles: docs.slice(start, end),
+				hasMore: end < docs.length,
 				page: nextPage,
 			}
-		} catch (error) {
-			const parsedError = parseAPIError(error)
-			return rejectWithValue(parsedError)
+		} catch (err) {
+			return rejectWithValue(parseAPIError(err))
 		}
 	}
 )
@@ -106,6 +129,9 @@ const newsSlice = createSlice({
 			state.currentPage = 0
 			state.hasMore = true
 			state.error = null
+			// сбросим год/месяц на «сегодняшние», но сразу после первого fetchNews.fulfilled
+			state.year = new Date().getFullYear()
+			state.month = new Date().getMonth() + 1
 		},
 	},
 	extraReducers: builder => {
@@ -115,25 +141,29 @@ const newsSlice = createSlice({
 				state.loading = true
 				state.error = null
 			})
-			.addCase(fetchNews.fulfilled, (state, action) => {
+			.addCase(fetchNews.fulfilled, (state, { payload }) => {
 				state.loading = false
-				state.articles = action.payload.articles
-				state.hasMore = action.payload.hasMore
-				state.currentPage = action.payload.page
+				state.articles = payload.articles
+				state.hasMore = payload.hasMore
+				state.currentPage = payload.page
+				// сохраняем «архивный» год/месяц
+				state.year = payload.year
+				state.month = payload.month
 			})
 			.addCase(fetchNews.rejected, (state, action) => {
 				state.loading = false
 				state.error = action.payload as string
 			})
-			// Загрузка дополнительных новостей
+
+			// Загрузка доп. новостей
 			.addCase(loadMoreNews.pending, state => {
 				state.loadingMore = true
 			})
-			.addCase(loadMoreNews.fulfilled, (state, action) => {
+			.addCase(loadMoreNews.fulfilled, (state, { payload }) => {
 				state.loadingMore = false
-				state.articles = [...state.articles, ...action.payload.articles]
-				state.hasMore = action.payload.hasMore
-				state.currentPage = action.payload.page
+				state.articles.push(...payload.articles)
+				state.hasMore = payload.hasMore
+				state.currentPage = payload.page
 			})
 			.addCase(loadMoreNews.rejected, (state, action) => {
 				state.loadingMore = false

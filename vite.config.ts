@@ -9,8 +9,8 @@ export default defineConfig({
 	// 		'/api': {
 	// 			target: 'https://api.nytimes.com',
 	// 			changeOrigin: true,
-	// 			rewrite: path => path.replace(/^\/api/, ''),
 	// 			secure: false,
+	// 			rewrite: path => path.replace(/^\/api/, ''),
 	// 		},
 	// 	},
 	// },
