@@ -1,12 +1,10 @@
-'use client'
-
 import { useEffect, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
 
-import { fetchNews, loadMoreNews, clearError } from '@/store/slices/newsSlice'
-import { useAppDispatch, useAppSelector } from '@/store/hoosk'
+import { fetchNews, loadMoreNews, clearError } from '@/store/slices/news-slice'
+import { ArticleCard, ErrorDisplay, LoadingSpinner } from '.'
 import { formatDate, groupArticlesByDate } from '@/lib/group-articles-by-date'
-import { ArticleCard, LoadingSpinner } from '.'
+import { getErrorMessage } from '@/lib/get-error-message'
+import { useAppDispatch, useAppSelector } from '@/store/hoosk'
 
 export function NewsList() {
 	const dispatch = useAppDispatch()
@@ -23,11 +21,11 @@ export function NewsList() {
 	const handleObserver = useCallback(
 		(entries: IntersectionObserverEntry[]) => {
 			const [target] = entries
-			if (target.isIntersecting && hasMore && !loadingMore) {
+			if (target.isIntersecting && hasMore && !loadingMore && !error) {
 				dispatch(loadMoreNews())
 			}
 		},
-		[hasMore, loadingMore, dispatch]
+		[hasMore, loadingMore, error, dispatch]
 	)
 
 	useEffect(() => {
@@ -47,13 +45,9 @@ export function NewsList() {
 		dispatch(fetchNews({ year, month }))
 	}
 
-	if (error) {
-		return (
-			<div className='p-4 text-center mt-[60px] flex-1 '>
-				<p className='text-red-500 mb-4'>Ошибка загрузки: {error}</p>
-				<Button onClick={handleRetry}>Попробовать снова</Button>
-			</div>
-		)
+	// Показываем ошибку, если она есть и нет загруженных статей
+	if (error && articles.length === 0) {
+		return <ErrorDisplay error={error} onRetry={handleRetry} />
 	}
 
 	const groupedArticles = groupArticlesByDate(articles)
@@ -86,10 +80,29 @@ export function NewsList() {
 
 						<div ref={observerRef} className='h-4' />
 
+						{/* Показываем ошибку при загрузке дополнительных новостей */}
+						{error && articles.length > 0 && (
+							<div className='text-center py-4'>
+								<div className='bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto'>
+									<p className='text-red-600 text-sm mb-2'>
+										{getErrorMessage(error)}
+									</p>
+									{error !== 'RATE_LIMIT_EXCEEDED' && (
+										<button
+											onClick={handleRetry}
+											className='text-red-700 underline text-sm hover:no-underline'
+										>
+											Попробовать снова
+										</button>
+									)}
+								</div>
+							</div>
+						)}
+
 						{/* Индикатор загрузки дополнительных новостей */}
 						{loadingMore && <LoadingSpinner />}
 
-						{!hasMore && articles.length > 0 && (
+						{!hasMore && articles.length > 0 && !error && (
 							<div className='text-center py-8'>
 								<p className='text-gray-500'>Все новости загружены</p>
 							</div>
@@ -97,7 +110,7 @@ export function NewsList() {
 					</div>
 				)}
 
-				{!loading && articles.length === 0 && (
+				{!loading && articles.length === 0 && !error && (
 					<div className='text-center py-12'>
 						<p className='text-gray-500'>Новости не найдены</p>
 					</div>

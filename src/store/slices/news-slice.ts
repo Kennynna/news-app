@@ -1,5 +1,6 @@
+import { parseAPIError } from '@/lib/get-error-message'
+import type { Article } from '@/types'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import type { Article } from '../../api/archive'
 
 interface NewsState {
 	articles: Article[]
@@ -22,65 +23,73 @@ const initialState: NewsState = {
 	year: new Date().getFullYear(),
 	month: new Date().getMonth() + 1,
 }
-const NYT_API_KEY = 'HDpxjv7texsIckUASLuAcpVUzw1b5QeK'
 
 // Async thunk для загрузки новостей
+const NYT_API_KEY = 'HDpxjv7texsIckUASLuAcpVUzw1b5QeK'
 export const fetchNews = createAsyncThunk(
 	'news/fetchNews',
-	async ({
-		year,
-		month,
-		page = 0,
-	}: {
-		year: number
-		month: number
-		page?: number
-	}) => {
-		const response = await fetch(
-			`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
-		)
+	async (
+		{ year, month, page = 0 }: { year: number; month: number; page?: number },
+		{ rejectWithValue }
+	) => {
+		try {
+			const response = await fetch(
+				`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
+			)
 
-		if (!response.ok) {
-			throw new Error('Failed to fetch news')
-		}
+			if (!response.ok) {
+				const errorData = await response.json()
+				throw errorData
+			}
 
-		const data = await response.json()
-		const articlesPerPage = 10
-		const startIndex = page * articlesPerPage
-		const endIndex = startIndex + articlesPerPage
+			const data = await response.json()
+			const articlesPerPage = 10
+			const startIndex = page * articlesPerPage
+			const endIndex = startIndex + articlesPerPage
 
-		return {
-			articles: data.response.docs.slice(startIndex, endIndex),
-			hasMore: endIndex < data.response.docs.length,
-			page,
+			return {
+				articles: data.response.docs.slice(startIndex, endIndex),
+				hasMore: endIndex < data.response.docs.length,
+				page,
+			}
+		} catch (error) {
+			const parsedError = parseAPIError(error)
+			return rejectWithValue(parsedError)
 		}
 	}
 )
-//  thunk для загрузки дополнительных новостей
+
+// Async thunk для загрузки дополнительных новостей
 export const loadMoreNews = createAsyncThunk(
 	'news/loadMoreNews',
-	async (_, { getState }) => {
-		const state = getState() as { news: NewsState }
-		const { year, month, currentPage } = state.news
-		const nextPage = currentPage + 1
+	async (_, { getState, rejectWithValue }) => {
+		try {
+			const state = getState() as { news: NewsState }
+			const { year, month, currentPage } = state.news
+			const nextPage = currentPage + 1
 
-		const response = await fetch(
-			`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
-		)
+			const response = await fetch(
+				`/api/svc/archive/v1/${year}/${month}.json?api-key=${NYT_API_KEY}`
+			)
 
-		if (!response.ok) {
-			throw new Error('Failed to fetch more news')
-		}
+			if (!response.ok) {
+				const errorData = await response.json()
+				throw errorData
+			}
 
-		const data = await response.json()
-		const articlesPerPage = 10
-		const startIndex = nextPage * articlesPerPage
-		const endIndex = startIndex + articlesPerPage
+			const data = await response.json()
+			const articlesPerPage = 10
+			const startIndex = nextPage * articlesPerPage
+			const endIndex = startIndex + articlesPerPage
 
-		return {
-			articles: data.response.docs.slice(startIndex, endIndex),
-			hasMore: endIndex < data.response.docs.length,
-			page: nextPage,
+			return {
+				articles: data.response.docs.slice(startIndex, endIndex),
+				hasMore: endIndex < data.response.docs.length,
+				page: nextPage,
+			}
+		} catch (error) {
+			const parsedError = parseAPIError(error)
+			return rejectWithValue(parsedError)
 		}
 	}
 )
@@ -114,7 +123,7 @@ const newsSlice = createSlice({
 			})
 			.addCase(fetchNews.rejected, (state, action) => {
 				state.loading = false
-				state.error = action.error.message || 'Failed to fetch news'
+				state.error = action.payload as string
 			})
 			// Загрузка дополнительных новостей
 			.addCase(loadMoreNews.pending, state => {
@@ -128,7 +137,7 @@ const newsSlice = createSlice({
 			})
 			.addCase(loadMoreNews.rejected, (state, action) => {
 				state.loadingMore = false
-				state.error = action.error.message || 'Failed to load more news'
+				state.error = action.payload as string
 			})
 	},
 })

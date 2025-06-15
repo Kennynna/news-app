@@ -1,6 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import type { Article } from '@/api/archive'
-import type { GroupedArticles } from '@/types'
+import type { Article, GroupedArticles } from '@/types'
 
 export function groupArticlesByDate(articles: Article[]): GroupedArticles[] {
 	const groups: { [key: string]: Article[] } = {}
